@@ -8,5 +8,12 @@
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:text="@string/sunset_preface" />
+    <TextView
+        android:id="@+id/label_result"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:textSize="200sp"
+        android:layout_below="@+id/label_sunset"
+        android:text="@string/sunset_result" />
 
 </RelativeLayout>

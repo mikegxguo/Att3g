@@ -6,13 +6,15 @@ import com.quectel.modemtool.NvConstants;
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.TextView;
 //import android.widget.Button;
 import android.util.Log;
 import android.os.SystemProperties;
 import android.content.Context;
 //import android.os.PowerManager;
-//import android.content.Intent;
+import android.content.Intent;
 
+import java.io.File;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -21,17 +23,21 @@ import java.io.FileWriter;
 
 public class sunset extends Activity {
     private static final String TAG = "Sunset";
+    private static final String LOG_FILE = "/mnt/sdcard/ATT_3G_Sunset.txt";
+    private boolean mHandled = false;
+    private TextView mResultView;
     //private boolean mGsmDisabled = false;
     //private Button  mEnableGsmBtn;
     //private Button  mDisableGsmBtn;
     private ModemTool mTool;
-    //private Context mContext;
+    private Context mContext;
 
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
         setContentView(R.layout.sunset_layout);
-        //mContext = this;
+        mResultView = (TextView) findViewById(R.id.label_result);
+        mContext = this;
         //mEnableGsmBtn = (Button)findViewById(R.id.enable_gsm);
         //mDisableGsmBtn = (Button)findViewById(R.id.disable_gsm);
 
@@ -57,11 +63,15 @@ public class sunset extends Activity {
         }
         */
         if(sc600_sku.contains("NA") && project.contains("gemini")) {
+            File file = new File(LOG_FILE);
+            if(file != null) {
+                file.delete();
+            }
             mTool = new ModemTool();
             handleAtt3gSunset();
-            WriteDataLog("/mnt/sdcard/ATT_3G_Sunset.txt", "AT&T 3G sunset");
+            mHandled = true;
         }
-        finish();
+        //finish();
     }
 
     @Override
@@ -74,6 +84,15 @@ public class sunset extends Activity {
     public void onResume() {
         super.onResume();
         log("onResume()");
+        if(mHandled) {
+            mResultView.setText("PASS");
+        } else {
+            mResultView.setText("FAIL");
+        }
+        Intent intent = new Intent();
+        intent.setAction("ACTION_ATT_3G_SUNSET");
+        intent.putExtra("result", mHandled);
+        mContext.sendBroadcast(intent);
     }
 
 
@@ -125,25 +144,31 @@ public class sunset extends Activity {
         val = sendGetAT(UE_USAGE_SETTING_R, prefix);
         if(val.contains("00") || val.contains("ERROR")) { //voice centric
             Log.d(TAG, "Voice centric, now change it to data centric for AT&T 3G sunset");
+            WriteDataLog(LOG_FILE, "Voice centric, now change it to data centric for AT&T 3G sunset");
             sendAT(UE_USAGE_SETTING_W);
         } else {
             Log.d(TAG, "Data centric");
+            WriteDataLog(LOG_FILE, "Data centric");
         }
         //check IMS_ENABLE
         val = sendGetAT(IMS_ENABLE_R, prefix);
         if(val.contains("01")) {
             Log.d(TAG, "IMS is enabled, now disable it for AT&T 3G sunset.");
+            WriteDataLog(LOG_FILE, "IMS is enabled, now disable it for AT&T 3G sunset.");
             sendAT(IMS_ENABLE_W);
         } else {
             Log.d(TAG, "IMS is disabled");
+            WriteDataLog(LOG_FILE, "IMS is disabled");
         }
         //check SMS mandatory
         val = sendGetAT(SMS_MANDATORY_R, prefix);
         if(val.contains("01")) {
             Log.d(TAG, "SMS MANDATORY is enabled, now disable it for AT&T 3G sunset");
+            WriteDataLog(LOG_FILE, "SMS MANDATORY is enabled, now disable it for AT&T 3G sunset");
             sendAT(SMS_MANDATORY_W);
         } else {
             Log.d(TAG, "SMS MANDATORY is disabled");
+            WriteDataLog(LOG_FILE, "SMS MANDATORY is disabled");
         }
         //reset modem
         sendAT(RESET_MODEM);
@@ -279,7 +304,7 @@ public class sunset extends Activity {
     public void WriteDataLog(String strFilePath, String strlog) {
         String Filename = strFilePath;
 
-        String strline = strlog + "\n\r";
+        String strline = strlog + "\n";
         FileWriter fw = null;
         try {
             fw = new FileWriter(Filename, true);

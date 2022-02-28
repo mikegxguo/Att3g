@@ -1,0 +1,3 @@
+../../../out/host/linux-x86/bin/aapt a ../../../out/target/product/gemini/system/priv-app/Att3g/Att3g.apk lib/arm64-v8a/libnative-lib.so
+cp ../../../out/target/product/gemini/system/priv-app/Att3g/Att3g.apk ~/mike/share/
+cd ../../../
