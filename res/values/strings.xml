@@ -17,5 +17,5 @@
     <string name="disable_gsm">Disable GSM</string>
     <string name="att_3g_sunset">AT&amp;T 3G sunset</string>
     <string name="sunset_preface">AT&amp;T is sunsetting its 3G network. \nThe offical date is Feb. 22, 2022</string>
-    <string name="sunset_result">Not applicable</string>
+    <string name="sunset_result">Check...</string>
 </resources>

@@ -13,6 +13,8 @@ import android.os.SystemProperties;
 import android.content.Context;
 //import android.os.PowerManager;
 import android.content.Intent;
+import android.os.Handler;
+import android.os.Message;
 
 import java.io.File;
 import java.io.BufferedReader;
@@ -25,6 +27,11 @@ public class sunset extends Activity {
     private static final String TAG = "Sunset";
     private static final String LOG_FILE = "/mnt/sdcard/ATT_3G_Sunset.txt";
     private boolean mHandled = false;
+    private static final int MSG_AUTO_HANDLER = 0x1000;
+    private static final int MSG_AUTO_REFRESH = 0x1001;
+    private boolean mEndHandling = false;
+    private String sc600_sku;
+    private String project;
     private TextView mResultView;
     //private boolean mGsmDisabled = false;
     //private Button  mEnableGsmBtn;
@@ -43,8 +50,8 @@ public class sunset extends Activity {
 
         log("onCreate()");
 
-        String sc600_sku = SystemProperties.get("ro.boot.sc600_sku");
-        String project = SystemProperties.get("ro.product.name");
+        sc600_sku = SystemProperties.get("ro.boot.sc600_sku");
+        project = SystemProperties.get("ro.product.name");
         /*
         if(sc600_sku.contains("EM") && project.contains("gemini")) {
             mTool = new ModemTool();
@@ -68,8 +75,7 @@ public class sunset extends Activity {
                 file.delete();
             }
             mTool = new ModemTool();
-            handleAtt3gSunset();
-            mHandled = true;
+            //handleAtt3gSunset();
         }
         //finish();
     }
@@ -78,21 +84,19 @@ public class sunset extends Activity {
     public void onPause() {
         super.onPause();
         log("onPause()");
+        if(mHandler != null && runnable != null) {
+            mHandler.removeCallbacks(runnable);
+        }
     }
 
     @Override
     public void onResume() {
         super.onResume();
         log("onResume()");
-        if(mHandled) {
-            mResultView.setText("PASS");
-        } else {
-            mResultView.setText("FAIL");
+        if(mHandler != null && runnable != null) {
+            //mHandler.removeCallbacks(runnable);
+            mHandler.postDelayed(runnable, 1000);
         }
-        Intent intent = new Intent();
-        intent.setAction("ACTION_ATT_3G_SUNSET");
-        intent.putExtra("result", mHandled);
-        mContext.sendBroadcast(intent);
     }
 
 
@@ -172,8 +176,86 @@ public class sunset extends Activity {
         }
         //reset modem
         sendAT(RESET_MODEM);
+        Log.d(TAG, "Reset modem ......");
+        WriteDataLog(LOG_FILE, "Reset modem ......");
         return true;
     }
+
+    public boolean CheckAtt3gSunset() {
+        String prefix = "+QNVFR: ";
+        String val = null;
+        String UE_USAGE_SETTING_R = "AT+QNVFR=\"/nv/item_files/modem/mmode/ue_usage_setting\"";
+        String IMS_ENABLE_R = "AT+QNVFR=\"/nv/item_files/ims/IMS_enable\"";
+        String SMS_MANDATORY_R = "AT+QNVFR=\"/nv/item_files/modem/mmode/sms_mandatory\"";
+        //check UE_USAGE_SETTING
+        val = sendGetAT(UE_USAGE_SETTING_R, prefix);
+        if(val.contains("00") || val.contains("ERROR")) { //voice centric
+            Log.d(TAG, "Voice centric");
+            WriteDataLog(LOG_FILE, "Voice centric");
+        } else {
+            Log.d(TAG, "Data centric");
+            WriteDataLog(LOG_FILE, "Data centric");
+            mHandled = true;
+        }
+        //check IMS_ENABLE
+        val = sendGetAT(IMS_ENABLE_R, prefix);
+        if(val.contains("01")) {
+            Log.d(TAG, "IMS is enabled");
+            WriteDataLog(LOG_FILE, "IMS is enabled");
+        } else {
+            Log.d(TAG, "IMS is disabled");
+            WriteDataLog(LOG_FILE, "IMS is disabled");
+        }
+        //check SMS mandatory
+        val = sendGetAT(SMS_MANDATORY_R, prefix);
+        if(val.contains("01")) {
+            Log.d(TAG, "SMS MANDATORY is enabled");
+            WriteDataLog(LOG_FILE, "SMS MANDATORY is enabled");
+        } else {
+            Log.d(TAG, "SMS MANDATORY is disabled");
+            WriteDataLog(LOG_FILE, "SMS MANDATORY is disabled");
+        }
+        return true;
+    }
+    private Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MSG_AUTO_HANDLER:
+                    handleAtt3gSunset();
+                    mEndHandling = true;
+                    this.postDelayed(runnable, 10000);
+                    break;
+                case MSG_AUTO_REFRESH:
+                    if(sc600_sku.contains("NA") && project.contains("gemini")) {
+                        CheckAtt3gSunset();
+                    }
+                    //Refresh UI
+                    if(mHandled) {
+                        mResultView.setText("PASS");
+                    } else {
+                        mResultView.setText("FAIL");
+                    }
+                    Intent intent = new Intent();
+                    intent.setAction("ACTION_ATT_3G_SUNSET");
+                    intent.putExtra("result", mHandled);
+                    mContext.sendBroadcast(intent);
+                    mEndHandling = false;
+                    break;
+            }
+        }
+    };
+
+    Runnable runnable = new Runnable() {
+        @Override
+        public void run() {
+            if(sc600_sku.contains("NA") && project.contains("gemini") && !mEndHandling) {
+                mHandler.obtainMessage(MSG_AUTO_HANDLER, null).sendToTarget();
+            } else {
+                mHandler.obtainMessage(MSG_AUTO_REFRESH, null).sendToTarget();
+            }
+        }
+    };
 /*
     private void reboot() {
         try {
