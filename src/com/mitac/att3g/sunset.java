@@ -150,34 +150,44 @@ public class sunset extends Activity {
             Log.d(TAG, "Voice centric, now change it to data centric for AT&T 3G sunset");
             WriteDataLog(LOG_FILE, "Voice centric, now change it to data centric for AT&T 3G sunset");
             sendAT(UE_USAGE_SETTING_W);
+            mHandled = false;
         } else {
             Log.d(TAG, "Data centric");
             WriteDataLog(LOG_FILE, "Data centric");
+            mHandled = true;
         }
         //check IMS_ENABLE
         val = sendGetAT(IMS_ENABLE_R, prefix);
-        if(val.contains("01")) {
+        if(val.contains("01") || val.contains("ERROR")) {
             Log.d(TAG, "IMS is enabled, now disable it for AT&T 3G sunset.");
             WriteDataLog(LOG_FILE, "IMS is enabled, now disable it for AT&T 3G sunset.");
             sendAT(IMS_ENABLE_W);
+            if(mHandled) {
+                mHandled = false;
+            }
         } else {
             Log.d(TAG, "IMS is disabled");
             WriteDataLog(LOG_FILE, "IMS is disabled");
         }
         //check SMS mandatory
         val = sendGetAT(SMS_MANDATORY_R, prefix);
-        if(val.contains("01")) {
+        if(val.contains("01") || val.contains("ERROR")) {
             Log.d(TAG, "SMS MANDATORY is enabled, now disable it for AT&T 3G sunset");
             WriteDataLog(LOG_FILE, "SMS MANDATORY is enabled, now disable it for AT&T 3G sunset");
             sendAT(SMS_MANDATORY_W);
+            if(mHandled) {
+                mHandled = false;
+            }
         } else {
             Log.d(TAG, "SMS MANDATORY is disabled");
             WriteDataLog(LOG_FILE, "SMS MANDATORY is disabled");
         }
         //reset modem
-        sendAT(RESET_MODEM);
-        Log.d(TAG, "Reset modem ......");
-        WriteDataLog(LOG_FILE, "Reset modem ......");
+        if(!mHandled) {
+            sendAT(RESET_MODEM);
+            Log.d(TAG, "Reset modem ......");
+            WriteDataLog(LOG_FILE, "Reset modem ......");
+        }
         return true;
     }
 
@@ -192,6 +202,7 @@ public class sunset extends Activity {
         if(val.contains("00") || val.contains("ERROR")) { //voice centric
             Log.d(TAG, "Voice centric");
             WriteDataLog(LOG_FILE, "Voice centric");
+            mHandled = false;
         } else {
             Log.d(TAG, "Data centric");
             WriteDataLog(LOG_FILE, "Data centric");
@@ -202,6 +213,9 @@ public class sunset extends Activity {
         if(val.contains("01")) {
             Log.d(TAG, "IMS is enabled");
             WriteDataLog(LOG_FILE, "IMS is enabled");
+            if(mHandled) {
+                mHandled = false;
+            }
         } else {
             Log.d(TAG, "IMS is disabled");
             WriteDataLog(LOG_FILE, "IMS is disabled");
@@ -211,6 +225,9 @@ public class sunset extends Activity {
         if(val.contains("01")) {
             Log.d(TAG, "SMS MANDATORY is enabled");
             WriteDataLog(LOG_FILE, "SMS MANDATORY is enabled");
+            if(mHandled) {
+                mHandled = false;
+            }
         } else {
             Log.d(TAG, "SMS MANDATORY is disabled");
             WriteDataLog(LOG_FILE, "SMS MANDATORY is disabled");
@@ -224,10 +241,14 @@ public class sunset extends Activity {
                 case MSG_AUTO_HANDLER:
                     handleAtt3gSunset();
                     mEndHandling = true;
-                    this.postDelayed(runnable, 10000);
+                    if(!mHandled) {
+                        this.postDelayed(runnable, 10000);
+                    } else {
+                        this.postDelayed(runnable, 1000);
+                    }
                     break;
                 case MSG_AUTO_REFRESH:
-                    if(sc600_sku.contains("NA") && project.contains("gemini")) {
+                    if(sc600_sku.contains("NA") && project.contains("gemini") && !mHandled) {
                         CheckAtt3gSunset();
                     }
                     //Refresh UI
